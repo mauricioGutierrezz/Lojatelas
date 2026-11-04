@@ -1,8 +1,8 @@
-# Telas el Regalo
+# Lojatelas · Gestão de loja de tecidos
 
-Telas el Regalo é um projeto de sistema para a operação de uma loja de tecidos. A proposta é acompanhar a mercadoria da entrada em estoque até o corte ou a retirada, o ticket e o pagamento. A operação foi planejada para funcionar localmente, mesmo sem internet.
+O Lojatelas organiza a operação de uma loja de tecidos e permite acompanhar a mercadoria da entrada em estoque até a retirada, o ticket e o pagamento. A operação foi planejada para funcionar localmente, mesmo sem internet.
 
-Este repositório reúne a documentação inicial do projeto. Os nomes das estações seguem o menu da aplicação, em espanhol.
+Este repositório apresenta o desenho da aplicação, as responsabilidades de cada estação e as regras que mantêm estoque, tickets e vendas consistentes. Os nomes das estações seguem o menu da aplicação, em espanhol.
 
 ## Estações de trabalho
 
@@ -36,7 +36,7 @@ flowchart LR
 
 Ao receber uma ação que altera dados, o controlador solicita a operação ao modelo. No padrão conceitual, o modelo notifica a visão da mudança e a visão consulta o estado para atualizar a apresentação. O controlador também pode selecionar outra visão conforme a ação.
 
-### Aplicação no Telas el Regalo
+### Aplicação no Lojatelas
 
 Na aplicação web, as rotas recebem as requisições e selecionam a página de resposta. Por exemplo, após registrar um pagamento, **Caja / Venta** redireciona o navegador para a página do ticket. A nova requisição consulta o registro atualizado e renderiza a página com o resultado. A notificação do diagrama conceitual descreve o padrão do livro. Neste fluxo, a tela se atualiza por requisição HTTP.
 
