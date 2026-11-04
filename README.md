@@ -15,21 +15,43 @@ Este repositório reúne a documentação inicial do projeto. Os nomes das esta�
 
 ## Arquitetura MVC — Model, View, Controller
 
-Cada estação tem uma responsabilidade operacional. **Model, View e Controller** são papéis dentro da aplicação que atendem às quatro estações.
+O MVC separa o estado da aplicação e suas operações da apresentação e do tratamento das ações do usuário.
 
-- **View (Visão)** é a tela que a equipe usa para consultar informações, preencher formulários e conferir o resultado.
-- **Controller (Controlador)** recebe a ação da tela, valida a entrada e a autorização quando exigida, aciona a operação no modelo e devolve o resultado à tela.
-- **Model (Modelo)** representa os dados e as regras da loja, como estoque, preços, tickets e vendas. Ele usa a base de dados compartilhada para consultar e registrar as operações.
+- **Model (Modelo)** mantém o estado e as operações do domínio, como registrar retiradas de estoque e pagamentos.
+- **View (Visão)** apresenta o estado ao usuário e encaminha as interações ao controlador.
+- **Controller (Controlador)** interpreta as interações, solicita operações ao modelo e seleciona a visão a exibir.
+
+### Ciclo de interação no MVC
+
+O diagrama adapta a organização conceitual da Figura 6.5 de Ian Sommerville. Cada seta indica uma interação e sua direção.
+
+```mermaid
+flowchart LR
+    V["View · apresentação"] -->|"Encaminha a ação do usuário"| C["Controller · interação"]
+    C -->|"Solicita alteração de estado"| M["Model · estado e operações"]
+    M -->|"Notifica a mudança de estado"| V
+    V -->|"Consulta o estado para exibição"| M
+    C -->|"Seleciona a visão a exibir"| V
+```
+
+Ao receber uma ação que altera dados, o controlador solicita a operação ao modelo. No padrão conceitual, o modelo notifica a visão da mudança e a visão consulta o estado para atualizar a apresentação. O controlador também pode selecionar outra visão conforme a ação.
+
+### Aplicação no Telas el Regalo
+
+Na aplicação web, as rotas recebem as requisições e selecionam a página de resposta. Por exemplo, após registrar um pagamento, **Caja / Venta** redireciona o navegador para a página do ticket. A nova requisição consulta o registro atualizado e renderiza a página com o resultado. A notificação do diagrama conceitual descreve o padrão do livro. Neste fluxo, a tela se atualiza por requisição HTTP.
+
+O mapa abaixo mostra como as estações usam a mesma base por meio da aplicação. As linhas representam dependências de uso.
 
 ```mermaid
 flowchart TD
-    Stock["View · Productos y stock"] <-->|"Entrada e consulta"| C["Controller · ações das estações"]
-    Cut["View · Corte / Ticket"] <-->|"Retirada e ticket"| C
-    Cash["View · Caja / Venta"] <-->|"Consulta e pagamento"| C
-    Prices["View · Precios"] <-->|"Revisão e confirmação"| C
-    C <-->|"Operações e resultados"| M["Model · dados e regras da loja"]
-    M <-->|"Consulta e gravação"| DB[("Base de dados compartilhada")]
+    S["Productos y stock"] --- A["Aplicação da loja"]
+    T["Corte / Ticket"] --- A
+    C["Caja / Venta"] --- A
+    P["Precios"] --- A
+    A ---|"Consulta e grava por meio do modelo"| DB[("Base de dados compartilhada")]
 ```
+
+**Referência** · Ian Sommerville. *Software Engineering*. 10ª edição, edição global. Pearson, cap. 6, seção 6.3, figuras 6.4 a 6.6. [Capítulo 6 · material do autor](https://www.slideshare.net/slideshow/ch6-architectural-design/43151507).
 
 ### Da entrada ao pagamento
 
