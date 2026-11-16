@@ -81,6 +81,30 @@ def install(conn, *, port, database, user, admin_password, db_password, password
             pass
 
 
+def ensure_app_role(conn, database, user, new_password):
+    """Role de conexión para una base restaurada: la crea o le renueva la contraseña."""
+    identifier(database); identifier(user)
+    if user in ('loja_owner', 'loja_operador', 'loja_admin') or not new_password:
+        raise ValueError('La conexión operativa debe tener una role LOGIN propia.')
+    conn.autocommit = True
+    role = sql.Identifier(user)
+    with conn.cursor() as cursor:
+        cursor.execute(QUIET)
+        cursor.execute("SET password_encryption='scram-sha-256'")
+        cursor.execute('SELECT rolcanlogin AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) '
+                       'FROM pg_roles WHERE rolname=%s', (user,))
+        state = cursor.fetchone()
+        if state is None:
+            cursor.execute(sql.SQL('CREATE ROLE {} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION '
+                                   'NOBYPASSRLS PASSWORD %s').format(role), (new_password,))
+        elif not state[0]:
+            raise ValueError('La role de conexión existente tiene privilegios inesperados; pedí revisión técnica.')
+        else:
+            cursor.execute(sql.SQL('ALTER ROLE {} PASSWORD %s').format(role), (new_password,))
+        cursor.execute(sql.SQL('GRANT loja_operador TO {}').format(role))
+        cursor.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO {}').format(sql.Identifier(database), role))
+
+
 def has_roles(conn, database, admin_password, port):
     """True si la base ya usa los tres roles; False si es de la versión anterior."""
     with psycopg2.connect(host='127.0.0.1', port=port, dbname=database, user=conn.get_dsn_parameters()['user'],

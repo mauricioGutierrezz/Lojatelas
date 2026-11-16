@@ -3,7 +3,7 @@ from datetime import date
 from uuid import uuid4
 
 import psycopg2
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, g, redirect, render_template, request, url_for
 from .. import db
 from ..corte import seal, unseal
 from ..validation import money_input
@@ -70,6 +70,13 @@ def confirmar():
     except psycopg2.Error as error:
         return render_template('cierre_error.html',envio=request.form['envio'],
             alterado=error.pgcode=='P0001'),409 if error.pgcode=='P0001' else 503
+    # Aviso opcional del inicio en Windows (respaldo al cerrar); nunca afecta el Cierre ya confirmado.
+    hook = current_app.config.get('AL_CERRAR')
+    if hook:
+        try:
+            hook()
+        except Exception:
+            pass
     return redirect(url_for('conteo.registro',data=draft['data']))
 
 

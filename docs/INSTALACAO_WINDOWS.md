@@ -25,7 +25,8 @@ el bootstrap si la tienda ya fue instalada.
 | `permitir_red.bat` | Permitir que los otros equipos de la tienda se conecten a este. |
 | `quitar_red.bat` | Deshacer `permitir_red.bat`. |
 | `respaldar.bat` | Crear ahora una copia de seguridad. |
-| `restaurar_respaldo.bat` | Restaurar el respaldo más reciente en una base **nueva**. |
+| `restaurar_respaldo.bat` | Restaurar el respaldo más reciente en una base **nueva**, con otro nombre. |
+| `recuperar_en_otro_equipo.bat` | Recuperar la tienda completa en otro equipo desde un respaldo. |
 | `ejecutar_pruebas.bat` | Ejecutar todas las pruebas en un PostgreSQL temporal. |
 
 ### Roles
@@ -126,9 +127,16 @@ escribirla; la contraseña del rol se sigue pidiendo.
 
 ### Respaldos
 
-Cada día, al abrir la tienda, se guarda un respaldo en
-`Documentos\Urdimbre - Respaldos` (se conservan los últimos 30). Si falla,
-la tienda abre igual y muestra un aviso. `respaldar.bat` crea uno en el momento.
+Se guarda un respaldo en `Documentos\Urdimbre - Respaldos`:
+
+- al abrir la tienda, si el último tiene más de una hora;
+- cada hora, mientras la tienda está abierta;
+- al confirmar cada Cierre del día;
+- en el momento, con `respaldar.bat`.
+
+Se conservan todos los de las últimas 48 horas y el último de cada día hasta
+30 días. Los respaldos automáticos no detienen las pantallas; si uno falla, la
+tienda sigue funcionando.
 Copiar esa carpeta también a un pendrive o a la nube: un respaldo que vive solo
 en el mismo equipo no protege contra la pérdida del equipo. El archivo contiene
 los datos de la tienda; tratarlo como confidencial.
@@ -136,6 +144,22 @@ los datos de la tienda; tratarlo como confidencial.
 `restaurar_respaldo.bat` crea una base nueva con el respaldo más reciente y
 muestra cómo abrir la tienda con ella (`iniciar.bat --database NOMBRE`). Nunca
 modifica ni borra la base actual.
+
+### Recuperar la tienda en otro equipo
+
+Si el equipo servidor se rompe o se pierde:
+
+1. En el equipo nuevo, instalar Python 3.13 y PostgreSQL 16, y copiar la
+   carpeta del proyecto.
+2. Tener a mano la carpeta de respaldos (sincronizada, o copiada en un
+   pendrive).
+3. Doble clic en `recuperar_en_otro_equipo.bat`. Muestra la fecha del respaldo
+   que va a usar y pide escribir `recuperar`.
+
+Al terminar, la tienda abre con el acceso directo. Las contraseñas de
+Administrador, Empleado y Cajero son las mismas de antes. Lo registrado después
+de la hora del respaldo no se recupera. Si en ese equipo ya existe la base, la
+recuperación se detiene sin tocarla.
 
 ### Dónde guardar la carpeta del proyecto
 
@@ -177,6 +201,22 @@ funcionando.
 
 No confirmar un Cierre ni registrar operaciones reales solo para comprobar la
 instalación.
+
+## Registro de validación Windows (16/11/2026, respaldo y recuperación)
+
+`ejecutar_pruebas.bat`, mismo entorno y cluster temporal:
+
+- Suite completa: 179 pruebas, 0 fallas, 12 omitidas; fase TCP con SCRAM: 10 y
+  18 aprobadas.
+- Recuperación de punta a punta: respaldo real restaurado en un segundo
+  PostgreSQL vacío, con otra contraseña administrativa; la aplicación operó con
+  su role restringida, el ingreso con la contraseña de rol original funcionó y
+  el respaldo automático quedó operativo en el destino.
+- Retención por antigüedad, intervalo mínimo, respaldo al Cierre y respaldo en
+  segundo plano verificados.
+
+No ejecutado: `recuperar_en_otro_equipo.bat` de forma interactiva en un segundo
+equipo físico, ni una hora real de espera del respaldo horario.
 
 ## Registro de validación Windows (16/11/2026, varios equipos)
 

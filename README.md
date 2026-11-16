@@ -28,7 +28,7 @@ flowchart LR
 - **Idempotência e concorrência.** Toda operação que grava usa chave de idempotência, `SELECT ... FOR UPDATE` e advisory locks; há testes de concorrência com sessões reais.
 - **Papéis em três camadas.** Administrador, Empleado e Cajero: o menu mostra só o permitido, as rotas recusam o resto e as funções do banco conferem o papel como segunda barreira.
 - **Operação local.** Funciona sem internet. Vários computadores usam um servidor na rede local pelo navegador; conexões de fora de redes privadas são recusadas.
-- **Backup e restauração.** Backup diário verificado com `pg_dump`; a restauração sempre cria uma base nova e nunca substitui a existente.
+- **Backup e recuperação.** Backup verificado com `pg_dump` a cada hora e a cada fechamento; recuperação em outro computador em um passo, testada de ponta a ponta contra um segundo PostgreSQL; nunca substitui uma base existente.
 - **Segredos fora do repositório.** A senha de conexão fica cifrada pelo Windows (DPAPI) para a conta que usa a loja.
 
 ## Arquitetura (MVC)

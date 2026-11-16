@@ -6,13 +6,14 @@
   base existente.
 """
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import re
 import secrets
 import shutil
 import subprocess
+import threading
 
 import psycopg2
 from psycopg2 import sql
@@ -21,7 +22,9 @@ from . import windows_secret
 from .bootstrap_local import identifier, read_secret
 
 BACKUP_ROLE = 'loja_backup'
-KEEP = 30
+KEEP_RECENT_HOURS = 48
+KEEP_DAYS = 30
+HOURLY_MINUTES = 60
 QUIET = ("SET log_statement='none'; SET log_min_error_statement='panic'; SET log_min_duration_statement=-1; "
          "SET log_min_duration_sample=-1; SET log_transaction_sample_rate=0")
 
@@ -125,16 +128,47 @@ def existing(directory, database):
     return sorted(path for path in directory.iterdir() if path.is_file() and pattern.fullmatch(path.name))
 
 
-def run_backup(database, port, directory=None, *, keep=KEEP, only_daily=False, timeout=600, now=None):
-    """Crea un respaldo verificado. Devuelve la ruta, o None si el de hoy ya existe."""
+def timestamp(path):
+    """Momento del respaldo según su nombre; None si el nombre no tiene el formato esperado."""
+    try:
+        return datetime.strptime(path.stem[-15:], '%Y%m%d-%H%M%S')
+    except ValueError:
+        return None
+
+
+def prune(directory, database, now=None):
+    """Conserva todos los respaldos de las últimas 48 horas y el último de cada día hasta 30 días."""
+    moment = now or datetime.now()
+    files = existing(directory, database)
+    keep, newest_of_day = set(), {}
+    for path in files:
+        made = timestamp(path)
+        if made is None or moment - made <= timedelta(hours=KEEP_RECENT_HOURS):
+            keep.add(path)
+        elif moment - made <= timedelta(days=KEEP_DAYS):
+            if made.date() not in newest_of_day or newest_of_day[made.date()][0] < made:
+                newest_of_day[made.date()] = (made, path)
+    keep.update(path for _made, path in newest_of_day.values())
+    for path in files:
+        if path not in keep:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
+
+def run_backup(database, port, directory=None, *, min_minutes=None, timeout=600, now=None):
+    """Crea un respaldo verificado. Devuelve la ruta, o None si ya hay uno más reciente que ``min_minutes``."""
     identifier(database)
     password = windows_secret.load(secret_name(database, port))
     if not password:
         raise NotConfigured('El respaldo todavía no está configurado en esta cuenta Windows.')
     directory = Path(directory) if directory else default_dir()
     moment = now or datetime.now()
-    if only_daily and any(path.name.startswith(f'{database}-{moment:%Y%m%d}-') for path in existing(directory, database)):
-        return None
+    if min_minutes is not None:
+        recent = [made for made in map(timestamp, existing(directory, database)) if made is not None]
+        if recent and timedelta(0) <= moment - max(recent) < timedelta(minutes=min_minutes):
+            return None
     directory.mkdir(parents=True, exist_ok=True)
     target = directory/f'{database}-{moment:%Y%m%d-%H%M%S}.dump'
     pending = target.with_name(target.name+'.partial')
@@ -150,25 +184,56 @@ def run_backup(database, port, directory=None, *, keep=KEEP, only_daily=False, t
             pending.unlink()
         except OSError:
             pass
-    for old in existing(directory, database)[:-keep]:
-        try:
-            old.unlink()
-        except OSError:
-            pass
+    prune(directory, database, moment)
     return target
 
 
 def daily(database, port):
     """Para el inicio de la tienda: nunca impide abrir; devuelve un mensaje para mostrar."""
     try:
-        created = run_backup(database, port, only_daily=True, timeout=180)
+        created = run_backup(database, port, min_minutes=HOURLY_MINUTES, timeout=180)
     except NotConfigured:
         return 'AVISO: el respaldo automático no está configurado. Ejecutá respaldar.bat una vez.'
     except (ValueError, OSError) as error:
-        return f'AVISO: no se pudo crear el respaldo de hoy ({error}). La tienda abre igual; ejecutá respaldar.bat.'
+        return f'AVISO: no se pudo crear el respaldo ({error}). La tienda abre igual; ejecutá respaldar.bat.'
     if created is None:
-        return 'Respaldo de hoy: ya existe.'
-    return f'Respaldo de hoy creado: {created}'
+        return 'Respaldo: ya hay uno de la última hora.'
+    return f'Respaldo creado: {created}'
+
+
+_running = threading.Lock()
+
+
+def quiet_backup(database, port, min_minutes=None):
+    """Respaldo sin interrumpir a nadie: si falla o ya hay uno en curso, no hace nada."""
+    if not _running.acquire(blocking=False):
+        return None
+    try:
+        return run_backup(database, port, min_minutes=min_minutes, timeout=300)
+    except (ValueError, OSError):
+        return None
+    finally:
+        _running.release()
+
+
+def background(database, port):
+    """Lanza un respaldo en segundo plano (por ejemplo, al confirmar un Cierre)."""
+    thread = threading.Thread(target=quiet_backup, args=(database, port), daemon=True)
+    thread.start()
+    return thread
+
+
+def hourly(database, port, stop=None, minutes=None):
+    """Mientras la tienda esté abierta, un respaldo por hora en segundo plano."""
+    minutes = HOURLY_MINUTES if minutes is None else minutes
+    stop = stop or threading.Event()
+
+    def loop():
+        while not stop.wait(minutes*60):
+            quiet_backup(database, port, min_minutes=minutes-1)
+
+    threading.Thread(target=loop, daemon=True).start()
+    return stop
 
 
 def admin_connection(port, admin_password):
@@ -264,7 +329,8 @@ def main():
     except (ValueError, OSError, psycopg2.Error) as error:
         parser.exit(1, f'{str(error).splitlines()[0] if str(error) else "Error"}\nNo se modificó ni borró ninguna base.\n')
     print(f'Respaldo creado: {created}')
-    print(f'Se conservan los últimos {KEEP}. Copiá esta carpeta también a un pendrive o a la nube.')
+    print(f'Se conservan todos los de las últimas {KEEP_RECENT_HOURS} horas y uno por día hasta {KEEP_DAYS} días.')
+    print('Copiá esta carpeta también a un pendrive o a la nube.')
 
 
 if __name__ == '__main__':

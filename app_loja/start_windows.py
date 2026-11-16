@@ -107,9 +107,15 @@ def main():
         except (OSError, ValueError):
             print('AVISO: no se pudo guardar la contraseña protegida; se pedirá en el próximo inicio.')
     print(f"Base: {state['database']} · PostgreSQL 127.0.0.1:{args.db_port}")
+    extras = {}
     if windows_secret.available():
         from . import backup_windows
         print(backup_windows.daily(args.database, args.db_port))
+        if backup_windows.configured(args.database, args.db_port):
+            # Con la tienda abierta: un respaldo por hora y otro al confirmar cada Cierre.
+            backup_windows.hourly(args.database, args.db_port)
+            extras['AL_CERRAR'] = lambda: backup_windows.background(args.database, args.db_port)
+            print('Respaldo automático: cada hora y al confirmar cada Cierre.')
     network = args.red or (not args.local and red.network_mode())
     try:
         if network:
@@ -118,7 +124,7 @@ def main():
                 from waitress import create_server
             except ImportError:
                 parser.exit(1, 'Falta el componente de red. Ejecutá instalar.bat una vez y volvé a abrir.\n')
-            application = create_app({'REGISTRAR_ACCESOS': True})
+            application = create_app({'REGISTRAR_ACCESOS': True, **extras})
             try:
                 # IPv4 e IPv6: el nombre del equipo suele resolver primero a IPv6 en la red local.
                 server = create_server(application, listen=f'0.0.0.0:{args.port} [::]:{args.port}',
@@ -130,7 +136,7 @@ def main():
                 print('Mientras la tienda esté abierta, este equipo no se suspende por inactividad.')
         else:
             from werkzeug.serving import make_server
-            server = make_server('127.0.0.1', args.port, create_app(), threaded=True)
+            server = make_server('127.0.0.1', args.port, create_app(extras or None), threaded=True)
             serve = server.serve_forever
     except OSError as error:
         if open_existing_store(args.port):

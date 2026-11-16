@@ -18,6 +18,8 @@ alteram regras de domínio do HANDOFF (estoque, corte, venda, Cierre, PIN).
 
 ## 2. Backup local automático diário
 
+> Atualizado em 2026-11-16: frequência, retenção e recuperação em outro computador mudaram; ver [backup e recuperação](2026-11-16-backup-e-recuperacao.md).
+
 - **Antes:** política de backup era questão aberta da Fase 3, sem rotina.
 - **Decisão (provisória, local):** cada início da loja cria no máximo um
   backup por dia em `Documentos\Urdimbre - Respaldos`, mantendo os 30

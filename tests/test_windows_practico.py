@@ -73,7 +73,7 @@ class LockoutRouteTests(unittest.TestCase):
 
 
 class StartSecretTests(unittest.TestCase):
-    def start(self, argv, *, saved, typed='typed-secret', fetch=None):
+    def start(self, argv, *, saved, typed='typed-secret', fetch=None, configured=False):
         from app_loja.start_windows import main
         store = MagicMock()
         store.available.return_value = True
@@ -87,13 +87,19 @@ class StartSecretTests(unittest.TestCase):
               patch('app_loja.start_windows.read_secret', return_value=typed) as prompt,
               patch('app_loja.db.fetchone', **(fetch or {'return_value': {'database': 'urdimbre'}})) as query,
               patch('app_loja.backup_windows.daily', return_value='respaldo ficticio') as daily,
-              patch('app_loja.run.create_app', return_value=object()),
+              patch('app_loja.backup_windows.configured', return_value=configured),
+              patch('app_loja.backup_windows.hourly') as self.hourly,
+              patch('app_loja.backup_windows.background') as self.background,
+              patch('app_loja.run.create_app', return_value=object()) as self.created,
               patch('werkzeug.serving.make_server', return_value=MagicMock()),
               patch('app_loja.start_windows.webbrowser.open'),
               patch('builtins.print') as output):
             main()
             from app_loja.config import DB_CONFIG
             used = DB_CONFIG['password']
+            hook = (self.created.call_args.args[0] or {}).get('AL_CERRAR') if self.created.call_args else None
+            if hook:
+                hook()
         printed = ' '.join(str(call) for call in output.call_args_list)
         return store, prompt, used, printed, daily, query
 
@@ -104,6 +110,15 @@ class StartSecretTests(unittest.TestCase):
         self.assertEqual(used, 'saved-secret')
         daily.assert_called_once_with('urdimbre', 5432)
         self.assertNotIn('saved-secret', printed)
+
+    def test_configured_backup_runs_hourly_and_after_each_cierre_only_when_configured(self):
+        self.start([], saved='saved-secret')
+        self.hourly.assert_not_called()
+        self.background.assert_not_called()
+        self.assertIsNone(self.created.call_args.args[0])
+        self.start([], saved='saved-secret', configured=True)
+        self.hourly.assert_called_once_with('urdimbre', 5432)
+        self.background.assert_called_once_with('urdimbre', 5432)
 
     def test_first_start_asks_once_and_saves_only_after_a_working_connection(self):
         store, prompt, used, printed, _, _ = self.start([], saved=None)
@@ -172,17 +187,43 @@ class BackupFileTests(unittest.TestCase):
             folder = Path(directory)
             (folder/'notas.txt').write_text('no es respaldo')
             (folder/'otra_base-20260101-000000.dump').write_bytes(b'x')
-            created = [backup_windows.run_backup('fixture_db', 5432, folder, keep=2, now=datetime(2026, 1, day, 8))
-                       for day in (1, 2, 3)]
+            # Tres del 1 de enero, dos del 2, y luego uno por hora el día 10.
+            moments = [datetime(2026, 1, 1, 9), datetime(2026, 1, 1, 13), datetime(2026, 1, 1, 18),
+                       datetime(2026, 1, 2, 9), datetime(2026, 1, 2, 17),
+                       datetime(2026, 1, 10, 9), datetime(2026, 1, 10, 10), datetime(2026, 1, 10, 11)]
+            for moment in moments:
+                backup_windows.run_backup('fixture_db', 5432, folder, now=moment)
+            # Últimas 48 h completas; de los días anteriores, solo el último de cada día.
             self.assertEqual([p.name for p in backup_windows.existing(folder, 'fixture_db')],
-                             ['fixture_db-20260102-080000.dump', 'fixture_db-20260103-080000.dump'])
-            self.assertFalse(created[0].exists())
+                             ['fixture_db-20260101-180000.dump', 'fixture_db-20260102-170000.dump',
+                              'fixture_db-20260110-090000.dump', 'fixture_db-20260110-100000.dump',
+                              'fixture_db-20260110-110000.dump'])
             self.assertTrue((folder/'notas.txt').exists() and (folder/'otra_base-20260101-000000.dump').exists())
             calls = run.call_count
-            self.assertIsNone(backup_windows.run_backup('fixture_db', 5432, folder, only_daily=True,
-                                                        now=datetime(2026, 1, 3, 19)))
+            # Con uno reciente no se repite; pasado el intervalo, sí.
+            self.assertIsNone(backup_windows.run_backup('fixture_db', 5432, folder, min_minutes=60,
+                                                        now=datetime(2026, 1, 10, 11, 59)))
             self.assertEqual(run.call_count, calls)
+            self.assertIsNotNone(backup_windows.run_backup('fixture_db', 5432, folder, min_minutes=60,
+                                                           now=datetime(2026, 1, 10, 12, 0)))
+            # Pasados 30 días no queda nada de enero salvo lo reciente.
+            backup_windows.run_backup('fixture_db', 5432, folder, now=datetime(2026, 2, 20, 9))
+            self.assertEqual([p.name for p in backup_windows.existing(folder, 'fixture_db')],
+                             ['fixture_db-20260220-090000.dump'])
             self.assertFalse(list(folder.glob('*.partial')))
+
+    def test_quiet_backup_never_raises_and_does_not_overlap(self):
+        with patch('app_loja.backup_windows.run_backup', side_effect=ValueError('sin conexión')) as run:
+            self.assertIsNone(backup_windows.quiet_backup('fixture_db', 5432))
+            self.assertTrue(backup_windows._running.acquire(blocking=False))
+            try:
+                self.assertIsNone(backup_windows.quiet_backup('fixture_db', 5432))
+            finally:
+                backup_windows._running.release()
+            self.assertEqual(run.call_count, 1)
+        with patch('app_loja.backup_windows.run_backup', return_value=Path('x.dump')) as run:
+            backup_windows.background('fixture_db', 5432).join(timeout=5)
+            run.assert_called_once()
 
     def test_failed_dump_leaves_no_file_and_daily_never_raises(self):
         with tempfile.TemporaryDirectory(prefix='loja-backup-test-') as directory, \
@@ -254,7 +295,7 @@ class BackupPostgresTests(unittest.TestCase):
             self.assertNotEqual(first, windows_secret.load(backup_windows.secret_name(database, self.port)))
             created = backup_windows.run_backup(database, self.port, folder)
             self.assertTrue(created.is_file() and created.stat().st_size > 0)
-            self.assertIsNone(backup_windows.run_backup(database, self.port, folder, only_daily=True))
+            self.assertIsNone(backup_windows.run_backup(database, self.port, folder, min_minutes=60))
             # La role de respaldo solo lee: no puede modificar la base.
             secret = windows_secret.load(backup_windows.secret_name(database, self.port))
             with psycopg2.connect(host='127.0.0.1', port=self.port, dbname=database,
@@ -283,6 +324,89 @@ class BackupPostgresTests(unittest.TestCase):
             log = Path(os.environ['LOJA_BOOTSTRAP_LOG']).read_text(encoding='utf-8')
             self.assertNotIn(secret, log)
             self.assertNotIn(first, log)
+
+    def second_cluster(self, directory, password):
+        """Otro PostgreSQL vacío, como un equipo nuevo: solo existe el usuario postgres."""
+        import socket
+        import subprocess
+        bindir = Path(backup_windows.pg_tool('pg_dump')).parent
+        data = Path(directory)/'otro-equipo'
+        secret_file = Path(directory)/'pw.txt'
+        secret_file.write_text(password, encoding='ascii')
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            port = listener.getsockname()[1]
+
+        def tool(name, *args):
+            return subprocess.run([str(bindir/f'{name}.exe'), *map(str, args)], stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL).returncode
+
+        self.assertEqual(tool('initdb', '-A', 'scram-sha-256', '--no-locale', '--encoding=UTF8', '-U', 'postgres',
+                              f'--pwfile={secret_file}', '-D', data), 0)
+        secret_file.unlink()
+        self.assertEqual(tool('pg_ctl', '-D', data, '-l', Path(directory)/'otro.log', '-o',
+                              f'-F -p {port} -c listen_addresses=127.0.0.1', '-w', 'start'), 0)
+        self.addCleanup(lambda: tool('pg_ctl', '-D', data, '-m', 'fast', '-w', 'stop'))
+        return port
+
+    def test_recovery_on_an_empty_postgresql_leaves_the_store_ready_in_one_step(self):
+        from app_loja import bootstrap_windows, recuperar_windows
+        database = 'recuperar_descartavel_'+uuid4().hex[:10]
+        user = 'recuperar_app_'+uuid4().hex[:10]
+        passwords = {perfil: 'TESTE-'+uuid4().hex for perfil in ('admin', 'empleado', 'cajero')}
+        conn = backup_windows.admin_connection(self.port, self.admin_password)
+        try:
+            bootstrap_windows.install(conn, port=self.port, database=database, user=user,
+                                      admin_password=self.admin_password, db_password='TESTE-'+uuid4().hex,
+                                      passwords=passwords)
+        finally:
+            conn.close()
+        with self.connect(database) as origin, origin.cursor() as cursor:
+            cursor.execute("INSERT INTO public.tipos_tela(nome) VALUES('TESTE dato a recuperar')")
+        origin.close()
+        with tempfile.TemporaryDirectory(prefix='loja-recuperar-pg-', ignore_cleanup_errors=True) as directory:
+            folder = Path(directory)/'respaldos'
+            with patch.dict(os.environ, {'LOJA_SECRET_DIR': str(Path(directory)/'equipo-viejo')}):
+                conn = backup_windows.admin_connection(self.port, self.admin_password)
+                try:
+                    backup_windows.configure(conn, database, self.port)
+                finally:
+                    conn.close()
+                created = backup_windows.run_backup(database, self.port, folder)
+            # Equipo nuevo: otro PostgreSQL, otra contraseña de postgres y ningún secreto guardado.
+            new_admin = 'TESTE-'+uuid4().hex
+            new_port = self.second_cluster(directory, new_admin)
+            with patch.dict(os.environ, {'LOJA_SECRET_DIR': str(Path(directory)/'equipo-nuevo')}):
+                self.assertEqual(recuperar_windows.newest_backup(folder, database), created)
+                with self.assertRaisesRegex(ValueError, 'No hay respaldos'):
+                    recuperar_windows.newest_backup(Path(directory)/'vacia', database)
+                self.assertTrue(recuperar_windows.recover(created, new_port, new_admin, database, user))
+                with self.assertRaisesRegex(ValueError, 'ya existe'):
+                    recuperar_windows.recover(created, new_port, new_admin, database, user)
+                app_secret = windows_secret.load(windows_secret.connection_name('db', user, database, new_port))
+                self.assertTrue(app_secret)
+                # La aplicación opera con su role restringida y las mismas contraseñas de rol.
+                with psycopg2.connect(host='127.0.0.1', port=new_port, dbname=database, user=user,
+                                      password=app_secret) as app, app.cursor() as cursor:
+                    cursor.execute('SET ROLE loja_operador')
+                    cursor.execute("SELECT count(*) FROM public.tipos_tela WHERE nome='TESTE dato a recuperar'")
+                    self.assertEqual(cursor.fetchone()[0], 1)
+                    cursor.execute('SELECT login,perfil FROM public.vw_usuarios ORDER BY id')
+                    self.assertEqual(cursor.fetchall(), [('administrador', 'admin'), ('empleado', 'empleado'), ('cajero', 'cajero')])
+                    cursor.execute('SAVEPOINT s')
+                    with self.assertRaises(psycopg2.Error):
+                        cursor.execute('SELECT senha_hash FROM public.usuarios')
+                    cursor.execute('ROLLBACK TO s')
+                app.close()
+                with psycopg2.connect(host='127.0.0.1', port=new_port, dbname=database, user='postgres',
+                                      password=new_admin) as check, check.cursor() as cursor:
+                    cursor.execute(bootstrap_windows.QUIET)
+                    cursor.execute('SELECT id FROM public.fn_autenticar_usuario(%s,%s)', ('cajero', passwords['cajero']))
+                    self.assertEqual(len(cursor.fetchall()), 1)
+                check.close()
+                # El respaldo automático ya funciona en el equipo nuevo, sin más pasos.
+                again = backup_windows.run_backup(database, new_port, Path(directory)/'respaldos-nuevos')
+                self.assertTrue(again.is_file() and again.stat().st_size > 0)
 
     def connect(self, database, user='postgres', password=None):
         return psycopg2.connect(host='127.0.0.1', port=self.port, dbname=database, user=user,

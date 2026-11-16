@@ -394,8 +394,12 @@ class CierreIntegrationTests(unittest.TestCase):
         review = self.post(cajero,'/caixa/cierre/revisar',{'envio':self.token(cajero.get('/caixa/cierre')),'contado':''})
         self.assertEqual(review.status_code,200)
         self.assertEqual(review.headers['Cache-Control'],'no-store')
+        from unittest.mock import MagicMock
+        # Aviso de respaldo al cerrar: se llama una vez y una falla suya nunca afecta el Cierre.
+        self.app.config['AL_CERRAR'] = hook = MagicMock(side_effect=RuntimeError('respaldo no disponible'))
         result = self.post(cajero,'/caixa/cierre/confirmar',{'envio':self.token(review),'definitivo':'si'})
         self.assertEqual(result.status_code,302)
+        hook.assert_called_once_with()
         self.assertIn(b'Cierre confirmado',cajero.get(result.location).data)
         self.assertEqual(self.query('SELECT fechado_por FROM public.fechamentos_caixa'),[(self.roles['cajero'],)])
         # La corrección del Fondo sigue sin modificar el Cierre registrado.
