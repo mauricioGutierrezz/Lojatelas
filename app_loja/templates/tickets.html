@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="heading"><div><h1>Corte / Ticket</h1></div>
+<form method="post" action="{{ url_for('ticket.nuevo') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="envio" value="{{ novo }}"><button>+ Nuevo ticket</button></form></div>
+<form class="card" method="get"><label for="codigo">Buscar por código de ticket</label><div class="actions"><input id="codigo" name="codigo" value="{{ codigo }}" placeholder="Ej.: TK-0000000001"><button>Buscar ticket</button>{% if codigo %}<a href="{{ url_for('ticket.index') }}">Ver pendientes</a>{% endif %}</div></form>
+<div class="card table-wrap"><h2>Tickets pendientes</h2>{% if tickets %}<table><thead><tr><th>Ticket</th><th>Iniciado por</th><th>Items</th><th>Total</th><th></th></tr></thead><tbody>{% for t in tickets %}<tr><td class="number">{{ t.codigo }}<small>{{ t.criado_em.strftime('%d/%m/%Y %H:%M') }}</small></td><td>{{ t.iniciado_por }}</td><td>{{ t.itens }}</td><td>{{ t.total|importe }}</td><td><a class="button secondary" href="{{ url_for('ticket.exibir',ticket_id=t.id) }}">Continuar ticket</a></td></tr>{% endfor %}</tbody></table>{% else %}<p>No encontramos tickets pendientes con ese código.</p>{% endif %}</div>
+{% endblock %}

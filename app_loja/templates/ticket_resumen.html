@@ -1,0 +1,7 @@
+{% if itens_registrados %}
+<section class="card ticket-registrado" aria-label="Ticket ya registrado">
+<p><strong>Ticket {{ ticket.codigo }}</strong> · {{ itens_registrados|length }} item(s) registrado(s) · Total registrado: <strong>{{ ticket.total|importe }}</strong></p>
+{% for i in itens_registrados %}<p>{{ i.produto }}{% if i.unidade_medida=='un' %} · Cantidad: {{ i.quantidade_vendida|cantidad }} un{% else %} · Vendida: {{ i.quantidade_vendida|cantidad }} {{ i.unidade_medida }} · {{ unidad(i.unidade_medida).curta }}: {{ i.quantidade_cortada|cantidad }} {{ i.unidade_medida }}{% endif %}</p>{% endfor %}
+<div class="actions"><a href="{{ url_for('ticket.exibir',ticket_id=ticket.id,**busca) }}">Ver ticket completo</a>{% if puede('caixa.conferir') %}<a class="button secondary" href="{{ url_for('caixa.conferir',ticket_id=ticket.id) }}">Ir a Caja / Venta</a>{% endif %}</div>
+</section>
+{% endif %}

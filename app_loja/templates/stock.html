@@ -1,0 +1,19 @@
+{% extends 'base.html' %}{% from 'foto_macro.html' import thumbnail %}
+{% block content %}
+<div class="heading"><div><h1>Productos y stock</h1></div><a class="button" href="{{ url_for('entrada.nuevo_producto') }}">+ Nuevo producto</a></div>
+<form class="card filters category-search" method="get">
+  <div><label for="q">Buscar producto o categoría</label><input id="q" name="q" value="{{ q }}" placeholder="Nombre del producto" autofocus></div>
+  <button>Buscar</button>
+  {% include 'categoria_filtros.html' %}
+</form>
+<div class="card table-wrap">
+{% if produtos %}
+<table><thead><tr><th>Producto</th><th>Precio</th><th>Stock total</th><th>Mayor saldo físico</th><th></th></tr></thead><tbody>
+{% for p in produtos %}
+<tr><td>{{ thumbnail(p.produto_id,p.produto,p.tem_foto) }}<a href="{{ url_for('entrada.detalle',produto_id=p.produto_id) }}">{{ p.produto }}</a><small>{{ p.tipo }}</small></td><td class="number">{{ p.preco_unitario|importe }} / {{ p.unidade_medida }}</td><td class="number">{{ p.estoque_total|cantidad }} {{ p.unidade_medida }}</td><td class="number">{% if p.unidade_medida!='un' %}{{ p.maior_lote_disponivel|cantidad }} {{ p.unidade_medida }} · {{ unidad(p.unidade_medida).origem }}{% else %}—{% endif %}</td><td><a class="button secondary" href="{{ url_for('entrada.index',produto_id=p.produto_id) }}">Ingresar stock</a></td></tr>
+{% endfor %}</tbody></table>
+{% else %}
+<div class="empty"><h2>No encontramos productos</h2><p class="muted">Probá otra búsqueda o creá el producto para empezar.</p><a href="{{ url_for('entrada.nuevo_producto') }}">Crear producto</a></div>
+{% endif %}
+</div>
+{% endblock %}

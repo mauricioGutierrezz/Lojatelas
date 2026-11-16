@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Urdimbre{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='stock.css') }}">
+  <script src="{{ url_for('static', filename='navigation.js') }}" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <a class="brand" href="{{ url_for(inicio) }}">Urdimbre</a>
+    {% if usuario %}
+    <nav aria-label="Navegación principal">
+      {% for endpoint,label in menu %}<a href="{{ url_for(endpoint) }}">{{ label }}</a>
+      {% endfor %}<span class="user">{{ rol or usuario.nome }}</span>
+      <form method="post" action="{{ url_for('auth.logout') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button">Salir</button>
+      </form>
+    </nav>
+    {% endif %}
+  </header>
+  <main>
+    {% for category,message in get_flashed_messages(with_categories=true) %}
+    <p class="flash {{ category }}" role="status">{{ message }}</p>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+{% if usuario %}<dialog id="foto-dialog"><button type="button" class="secondary">Cerrar</button><img alt="Foto del producto"></dialog><script src="{{ url_for('static',filename='photos.js') }}" defer></script>{% endif %}
+</body>
+</html>

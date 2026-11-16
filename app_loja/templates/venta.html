@@ -1,0 +1,28 @@
+{% extends 'base.html' %}{% from 'foto_macro.html' import thumbnail %}
+{% block content %}
+{% include 'caja_links.html' %}
+<h1>{{ 'Venta concluida' if venda else 'Revisá el ticket' }} · {{ ticket.codigo }}</h1>
+<p>Total {{ 'recibido' if venda else 'a recibir' }}: <strong>{{ (venda.valor_total if venda else ticket.total)|importe }}</strong></p>
+<p class="status">{{ 'Día cerrado · No se pueden recibir pagos.' if ticket.dia_fechado else 'Día abierto' }}</p>
+<p class="muted">Ticket iniciado por {{ ticket.iniciado_por }} · {{ ticket.criado_em.strftime('%d/%m/%Y %H:%M:%S') }}</p>
+{% if venda %}<div class="card"><p class="status">Pagado</p><p>Efectivo: <strong>{{ venda.valor_efectivo|importe }}</strong> · Otro: <strong>{{ venda.valor_otro|importe }}</strong></p><p>Recibido por {{ venda.recebido_por_nome }} · {{ venda.recebido_em.strftime('%d/%m/%Y %H:%M:%S') }}</p></div>{% endif %}
+{% for i in itens %}<section class="card"><h2>{{ thumbnail(i.produto_id,i.produto,i.tem_foto) }}{{ i.produto }}</h2>
+{% if i.unidade_medida=='un' %}<p>Cantidad: {{ i.quantidade_vendida|cantidad }} un</p><p>Precio congelado: {{ i.preco_unitario|importe }} / un · Subtotal: <strong>{{ i.valor_total|importe }}</strong></p>{% else %}<p>Cantidad vendida: {{ i.quantidade_vendida|cantidad }} {{ i.unidade_medida }} · Precio congelado: {{ i.preco_unitario|importe }} / {{ i.unidade_medida }} · Subtotal: <strong>{{ i.valor_total|importe }}</strong></p>
+<p class="muted">{{ unidad(i.unidade_medida).retirada }}: {{ i.quantidade_cortada|cantidad }} {{ i.unidade_medida }} · Diferencia ({{ 'cortada' if i.unidade_medida=='m' else 'retirada' }} − vendida): {{ i.diferenca_quantidade|cantidad }} {{ i.unidade_medida }}</p>{% endif %}
+<p class="muted">Retirado por {{ i.cortado_por_nome }} · {{ i.cortado_em.strftime('%d/%m/%Y %H:%M:%S') }}</p></section>{% else %}<p class="flash">Este ticket no tiene items. No se puede recibir.</p>{% endfor %}
+{% if not venda and itens and ticket.status=='pendente' and not ticket.dia_fechado %}<div class="card"><form id="cobro" method="post" action="{{ url_for('caixa.recibir',ticket_id=ticket.id) }}" data-preparar="{{ url_for('caixa.composicion',ticket_id=ticket.id) }}" data-total="{{ ticket.total }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="envio" value="{{ envio }}">
+<label for="entregado">Efectivo entregado</label>
+<input id="entregado" inputmode="decimal" aria-describedby="entregado-error" autocomplete="off">
+<p id="entregado-error" class="flash erro" role="alert" hidden></p>
+<div class="actions"><button type="button" class="secondary" id="todo-efectivo">Todo en efectivo</button><button type="button" class="secondary" id="todo-otro">Todo en Otro</button></div>
+<div class="summary" aria-live="polite"><div><strong>{{ ticket.total|importe }}</strong><span>Total</span></div><div><strong id="cobro-efectivo">—</strong><span>Efectivo</span></div><div><strong id="cobro-otro">—</strong><span>Otro</span></div></div>
+<p id="vuelto-ayuda" class="hint" hidden>Vuelto a entregar: <span id="cobro-vuelto">—</span></p>
+<p id="cobro-estado" class="hint" role="status"></p>
+<a id="cobro-revisar" href="{{ url_for('caixa.conferir',ticket_id=ticket.id) }}" hidden>Volver a revisar el ticket</a>
+<label class="confirm-check"><input type="checkbox" name="integral" value="si" required> Cobro completo recibido</label>
+<div class="actions"><button id="confirmar-cobro" disabled>Confirmar cobro</button></div>
+<noscript>Activá JavaScript para revisar y confirmar el cobro.</noscript>
+</form></div><script src="{{ url_for('static',filename='cobro.js') }}" defer></script>{% endif %}
+<a href="{{ url_for('ticket.exibir',ticket_id=ticket.id) }}">Consultar ticket completo</a>
+{% endblock %}

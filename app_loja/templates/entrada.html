@@ -1,0 +1,42 @@
+{% extends 'base.html' %}{% from 'foto_macro.html' import thumbnail %}
+{% block content %}{{ thumbnail(produto.produto_id,produto.produto,produto.tem_foto) }}
+<a class="back" href="{{ url_for('entrada.stock') }}">← Productos y stock</a>
+<p class="step">Paso 1 de 2 · Ingresar stock</p><h1>{{ produto.produto }}</h1>
+<p class="muted">{{ produto.tipo }}</p>
+<form class="card" method="post" action="{{ url_for('entrada.revisar') }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="produto_id" value="{{ produto.produto_id }}">
+  {% if produto.unidade_medida=='un' %}
+  <label for="unidades">Cantidad de unidades</label><input id="unidades" name="quantidade" inputmode="numeric" value="{{ grupos[0].quantidade if grupos else '' }}" required>
+  {% else %}
+  <div id="groups">
+  {% set sugerida = produto.quantidade_padrao_lote|cantidad if produto.quantidade_padrao_lote else '' %}
+  {% for group in grupos or [{'rolos':1,'pecas':1,'quantidade':sugerida}] %}
+    <div class="group">
+      <div><label>Cantidad de {{ unidad(produto.unidade_medida).plural }}<input name="{{ 'pecas' if produto.unidade_medida=='kg' else 'rolos' }}" type="number" step="1" min="1" value="{{ group.get('rolos',group.get('pecas',1)) }}" required></label></div>
+      <div><label>Cantidad por {{ unidad(produto.unidade_medida).origem }} ({{ produto.unidade_medida }})<input name="quantidade" inputmode="decimal" value="{{ group.quantidade|string|replace('.',',') }}" placeholder="Ej.: 30" required></label></div>
+      <button class="remove" type="button"{% if not grupos or grupos|length == 1 %} style="display:none"{% endif %}>Quitar grupo</button>
+    </div>
+  {% endfor %}
+  </div>
+  <button class="secondary" type="button" id="add-group">+ Agregar otro tamaño</button>
+  {% endif %}
+  <div class="actions"><button>Revisar ingreso →</button></div>
+</form>
+{% if produto.unidade_medida!='un' %}<script>
+const groups=document.getElementById('groups');
+const updateRemove=()=>groups.querySelectorAll('.remove').forEach(button=>{
+  button.style.display=groups.children.length===1?'none':'';
+});
+document.getElementById('add-group').addEventListener('click',()=>{
+  const row=groups.firstElementChild.cloneNode(true);
+  row.querySelector('[name="{{ 'pecas' if produto.unidade_medida=='kg' else 'rolos' }}"]').value='1';
+  row.querySelector('[name="quantidade"]').value='';
+  groups.appendChild(row);updateRemove();row.querySelector('[name="quantidade"]').focus();
+});
+groups.addEventListener('click',event=>{
+  if(event.target.classList.contains('remove') && groups.children.length>1){
+    event.target.closest('.group').remove();updateRemove();
+  }
+});
+</script>{% endif %}
+{% endblock %}

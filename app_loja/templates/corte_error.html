@@ -1,0 +1,4 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>No se pudo confirmar el registro</h1><div class="card"><p>Consultá el ticket o reintentá el mismo registro. No repitas la retirada física.</p><div class="actions"><a class="button secondary" href="{{ url_for('ticket.exibir',ticket_id=ticket_id) }}">Ver ticket</a><form method="post" action="{{ url_for('corte.confirmar',ticket_id=ticket_id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="envio" value="{{ envio }}"><input type="hidden" name="realizado" value="si"><button>Reintentar el mismo registro</button></form></div></div>
+{% endblock %}

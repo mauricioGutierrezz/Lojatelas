@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'caja_links.html' %}
+<h1>{{ ('Consultar o corregir fondo' if cierre else 'Cierre del día') if formal else 'Consulta de Caja' }}</h1>
+<p>Fecha operativa: {{ estado.data.strftime('%d/%m/%Y') }} · <span class="status">{{ 'Día cerrado' if cierre else 'Día abierto' }}</span></p>
+{% include 'caja_valores.html' %}
+{% if cierre %}<p class="hint">No se pueden recibir pagos.</p><a class="button" href="{{ url_for('conteo.registro',data=estado.data.isoformat()) }}">Consultar Cierre confirmado</a>{% endif %}
+{% if formal %}
+<section class="card"><h2>Fondo inicial{% if estado.fundo_id is not none %} · {{ estado.fundo_inicial|importe }}{% endif %}</h2>
+{% if estado.fundo_id is not none %}<details><summary>Corregir fondo</summary>{% endif %}
+<form method="post" action="{{ url_for('conteo.fondo') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="envio" value="{{ fundo }}"><label for="valor">Fondo inicial</label><input id="valor" name="valor" inputmode="decimal" required>{% if cierre %}<p class="hint">Esta corrección no modifica el Cierre.</p>{% endif %}<div class="actions"><button>Guardar Fondo inicial</button></div></form>
+{% if estado.fundo_id is not none %}</details>{% endif %}
+{% if historico %}<details><summary>Historial del fondo</summary>{% for f in historico %}<p class="muted">{{ f.valor|importe }} · {{ f.responsavel }} · {{ f.registrado_em.strftime('%d/%m/%Y %H:%M:%S') }}</p>{% endfor %}</details>{% endif %}</section>
+{% if not cierre %}<section class="card"><h2>Preparar Cierre</h2>{% if estado.fundo_id is none %}<p>Falta informar el fondo inicial.</p>{% else %}<form method="post" action="{{ url_for('conteo.revisar') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="envio" value="{{ envio }}"><label for="contado">Efectivo contado, incluido el fondo (opcional)</label><input id="contado" name="contado" inputmode="decimal" placeholder="Vacío si no contaste"><div class="actions"><button>Revisar Cierre</button></div></form>{% endif %}</section>{% endif %}
+{% else %}<div class="actions"><a href="{{ url_for('conteo.consulta') }}">Actualizar consulta</a><a href="{{ url_for('conteo.cierre') }}">{{ 'Consultar o corregir fondo' if cierre else 'Ir a Cierre del día' }}</a></div>{% endif %}
+{% if not formal and registros %}<section class="card"><details><summary>Cierres registrados</summary>{% for registro in registros %}<p><a href="{{ url_for('conteo.registro',data=registro.data_referencia.isoformat()) }}">{{ registro.data_referencia.strftime('%d/%m/%Y') }}</a></p>{% endfor %}</details></section>{% endif %}
+{% endblock %}

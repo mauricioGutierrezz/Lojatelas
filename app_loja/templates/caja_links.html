@@ -1,0 +1,5 @@
+<div class="back"><div class="actions" role="navigation" aria-label="Navegación de Caja">
+  {% if request.endpoint != 'caixa.index' %}<a href="{{ url_for('caixa.index') }}">← Caja / Venta</a>{% endif %}
+  {% if request.endpoint != 'conteo.consulta' %}<a href="{{ url_for('conteo.consulta') }}">Consulta de Caja</a>{% endif %}
+  {% if request.endpoint == 'caixa.index' %}<a href="{{ url_for('conteo.cierre') }}">Cierre del día</a>{% endif %}
+</div></div>

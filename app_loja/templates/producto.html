@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<a class="back" href="{{ url_for('entrada.stock') }}">← Productos y stock</a>
+<h1>Nuevo producto</h1>
+<form class="card" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div class="wide"><label for="nome">Nombre del producto</label><input id="nome" name="nome" value="{{ values.get('nome','') }}" required autofocus placeholder="Ej.: Lino azul"></div>
+    <div><label for="tipo_id">Categoría</label><select id="tipo_id" name="tipo_id" required><option value="">Elegí una categoría</option>{% for c in categorias %}<option value="{{ c.id }}" {% if values.get('tipo_id') == c.id|string %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}</select></div>
+    <div><label for="unidade">Unidad</label><select id="unidade" name="unidade">{% for key,label in [('m','Metros (m)'),('kg','Kilogramos (kg)'),('un','Unidades (un)')] %}<option value="{{ key }}" {% if values.get('unidade') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div><label for="preco">Precio inicial por <span id="precio-unidad">m</span></label><input id="preco" name="preco" inputmode="decimal" value="{{ values.get('preco','') }}" required placeholder="Ej.: 8500,00"><p class="hint">Cambios posteriores: Precios.</p></div>
+    <div id="padrao-campo"><label for="padrao">Cantidad sugerida por rollo (opcional)</label><input id="padrao" name="padrao" inputmode="decimal" value="{{ values.get('padrao','') }}" placeholder="Ej.: 30"></div>
+    <div id="largura-campo"><label for="largura">Ancho en metros (opcional)</label><input id="largura" name="largura" inputmode="decimal" value="{{ values.get('largura','') }}" placeholder="Ej.: 1,40"></div>
+  </div>
+  {% include 'foto_input.html' %}
+  {% if categorias %}<div class="actions"><button>Crear producto e ingresar stock</button></div>{% else %}<p class="flash erro">Todavía no hay categorías disponibles. Pedí que completen la configuración inicial de la tienda.</p>{% endif %}
+</form>
+<script src="{{ url_for('static',filename='producto.js') }}" defer></script>
+{% endblock %}

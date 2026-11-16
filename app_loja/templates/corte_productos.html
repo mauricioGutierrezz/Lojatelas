@@ -1,0 +1,8 @@
+{% extends 'base.html' %}{% from 'foto_macro.html' import thumbnail %}
+{% block content %}
+<a class="back" href="{{ url_for('ticket.exibir',ticket_id=ticket.id,**busca) }}">← Ticket {{ ticket.codigo }} · Total {{ ticket.total|importe }}</a>
+{% include 'ticket_resumen.html' %}
+<h1>Elegí el producto</h1>
+<form class="card filters category-search" method="get"><div><label for="q">Buscar producto o categoría</label><input id="q" name="q" value="{{ q }}" autofocus></div><button>Buscar</button>{% include 'categoria_filtros.html' %}</form>
+<div class="card table-wrap"><table><thead><tr><th>Producto</th><th>Precio</th><th>Stock total</th><th>Mayor saldo físico</th><th>Abiertos / Cerrados</th><th></th></tr></thead><tbody>{% for p in produtos %}<tr><td>{{ thumbnail(p.produto_id,p.produto,p.tem_foto) }}{{ p.produto }}<small>{{ p.tipo }}</small></td><td>{{ p.preco_unitario|importe }} / {{ p.unidade_medida }}</td><td>{{ p.estoque_total|cantidad }} {{ p.unidade_medida }}</td><td>{% if p.unidade_medida!='un' %}{{ p.maior_lote_disponivel|cantidad }} {{ p.unidade_medida }} · {{ unidad(p.unidade_medida).origem }}{% else %}—{% endif %}</td><td>{% if p.unidade_medida!='un' %}{{ p.rolos_abertos }} / {{ p.rolos_fechados }}{% else %}—{% endif %}</td><td><a class="button secondary" href="{{ url_for('corte.seleccionar',ticket_id=ticket.id,produto_id=p.produto_id,q=q,categoria=categoria) }}">{{ 'Retirar unidades' if p.unidade_medida=='un' else 'Elegir ' ~ unidad(p.unidade_medida).plural }}</a></td></tr>{% else %}<tr><td colspan="6">No encontramos productos con esa búsqueda.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

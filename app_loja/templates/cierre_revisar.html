@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}{% include 'caja_links.html' %}<h1>Revisá el Cierre definitivo · {{ data }}</h1>
+{% include 'caja_valores.html' %}
+<div class="card"><p>Efectivo contado: <strong>{{ contado|importe if contado is not none else 'Sin conteo' }}</strong></p><p>Diferencia: <strong>{{ estado.diferenca|importe if contado is not none else 'Sin conteo' }}</strong></p>
+<form method="post" action="{{ url_for('conteo.confirmar') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="envio" value="{{ envio }}"><label class="confirm-check"><input type="checkbox" name="definitivo" value="si" required> Cerrar definitivamente: no se podrán recibir más pagos en esta fecha.</label><div class="actions"><button>Confirmar Cierre del día</button><a href="{{ url_for('conteo.cierre') }}">Volver a revisar</a></div></form></div>
+{% endblock %}

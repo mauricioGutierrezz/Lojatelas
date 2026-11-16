@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% from 'foto_macro.html' import thumbnail %}
+{% block content %}{{ thumbnail(produto.produto_id,produto.produto,produto.tem_foto) }}
+<p class="step">Paso 2 de 2</p><h1>Revisá el ingreso</h1>
+<p class="muted">{{ produto.produto }} · {{ produto.tipo }}</p>
+<div class="card">
+  <div class="summary">{% if produto.unidade_medida!='un' %}<div><strong>{{ roll_count }}</strong><span>{{ unidad(produto.unidade_medida).plural|capitalize }} individuales</span></div>{% endif %}<div><strong>{{ total|cantidad }} {{ produto.unidade_medida }}</strong><span>Cantidad total declarada</span></div></div>
+  {% if produto.unidade_medida!='un' %}<table><thead><tr><th>{{ unidad(produto.unidade_medida).plural|capitalize }}</th><th>Cantidad por {{ unidad(produto.unidade_medida).origem }}</th></tr></thead><tbody>{% for group in draft.grupos %}<tr><td>{{ group.get('rolos',group.get('pecas')) }}</td><td>{{ group.quantidade|cantidad }} {{ produto.unidade_medida }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  <form method="post" action="{{ url_for('entrada.confirmar') }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="chave" value="{{ draft.chave }}">
+    <div class="actions"><button>Confirmar ingreso</button><a class="button secondary" href="{{ url_for('entrada.index',produto_id=draft.produto_id,editar=1) }}">Corregir datos</a></div>
+  </form>
+</div>
+{% endblock %}

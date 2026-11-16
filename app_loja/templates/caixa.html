@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Caja / Venta</h1>
+{% include 'caja_links.html' %}
+<form class="card" method="get">
+<label for="codigo">Código del ticket</label>
+<input id="codigo" name="codigo" value="{{ codigo }}" placeholder="TK-0000000001" autocomplete="off" required autofocus>
+<div class="actions"><button>Buscar ticket</button></div>
+</form>
+{% if nao_encontrado %}<p class="flash" role="status">No encontramos ese ticket. Revisá el código.</p>{% endif %}
+{% endblock %}

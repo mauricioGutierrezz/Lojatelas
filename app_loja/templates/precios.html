@@ -1,0 +1,15 @@
+{% extends 'base.html' %}{% from 'foto_macro.html' import thumbnail %}
+{% block content %}
+<a class="back" href="{{ url_for('entrada.stock') }}">← Productos y stock</a>
+<h1>Precios</h1>
+<label for="precio-buscar">Buscar producto</label><input id="precio-buscar" type="search" autofocus>
+{% with filtro_local=true %}{% include 'categoria_filtros.html' %}{% endwith %}
+<form method="post" action="{{ url_for('precios.revisar') }}" id="precios-form">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="envio" value="{{ envio }}">
+<div class="card table-wrap"><table><thead><tr><th>Foto</th><th>Producto</th><th>Precio actual</th><th>Nuevo precio</th><th>Estado</th></tr></thead><tbody>
+{% for p in produtos %}<tr data-price-row data-name="{{ p.nome }}" data-category="{{ p.tipo_id }}" data-original="{{ p.preco_unitario }}">
+<td>{{ thumbnail(p.id,p.nome,p.tem_foto) }}</td><td>{{ p.nome }}<small>{{ p.unidade_medida }}</small></td><td>{{ p.preco_unitario|importe }}</td>
+<td><input aria-label="Precio de {{ p.nome }}" name="precio_{{ p.id }}" inputmode="decimal" value="{{ values.get('precio_'~p.id,p.preco_unitario|importe) }}" required></td><td data-pending></td></tr>{% endfor %}
+</tbody></table></div><div class="actions"><button>Revisar cambios</button><span id="precios-pendientes" role="status"></span></div></form>
+<script src="{{ url_for('static',filename='precios.js') }}" defer></script>
+{% endblock %}

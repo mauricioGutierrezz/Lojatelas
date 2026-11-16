@@ -1,0 +1,11 @@
+<div class="foto-input">
+  <label class="foto-label" for="foto">Foto principal (opcional)</label>
+  <div class="foto-dropzone">
+    <div id="foto-paste" contenteditable="true" role="textbox" aria-label="Pegar imagen" class="foto-paste" aria-describedby="foto-status">Pegá una imagen aquí (Ctrl+V)</div>
+    <span class="foto-or">o</span>
+    <label class="foto-file-button" for="foto">Elegir archivo</label>
+    <input id="foto" class="foto-file-input" name="foto" type="file" accept="image/jpeg,image/png,image/webp">
+  </div>
+  <p id="foto-status" role="status">JPEG, PNG o WebP · hasta 5 MB</p>
+  <img class="foto-preview" alt="Foto seleccionada" hidden>
+</div>

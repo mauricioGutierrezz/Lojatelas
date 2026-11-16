@@ -1,0 +1,1 @@
+{% macro thumbnail(id,name,present) -%}{% if present %}<button type="button" class="foto-thumb" data-foto="{{ url_for('entrada.foto',produto_id=id) }}" aria-label="Ver foto de {{ name }}"><img src="{{ url_for('entrada.miniatura',produto_id=id) }}" width="64" height="64" loading="lazy" alt="{{ name }}"></button>{% endif %}{%- endmacro %}

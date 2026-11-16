@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{ 'Volvé a revisar el ticket' if alterado else 'No se pudo confirmar la recepción' }}</h1>
+{% if alterado %}<p>El ticket cambió, ya fue recibido o el día está cerrado. Consultá los datos antes de confirmar.</p>
+{% else %}<p>No pudimos confirmar el registro. Consultá la venta o reintentá el mismo registro. No recibas el importe nuevamente.</p>
+<form method="post" action="{{ url_for('caixa.recibir',ticket_id=ticket_id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="envio" value="{{ envio }}"><input type="hidden" name="integral" value="si"><button>Reintentar el mismo registro</button></form>{% endif %}
+<div class="actions"><a class="button" href="{{ url_for('caixa.conferir',ticket_id=ticket_id) }}">Consultar ticket y venta</a></div>
+{% endblock %}

@@ -1,0 +1,10 @@
+<div class="category-filters" role="group" aria-label="Categorías">
+{% if filtro_local %}
+<button type="button" class="secondary" data-category="" aria-pressed="true">Todos</button>
+{% for c in categorias %}<button type="button" class="secondary" data-category="{{ c.id }}" aria-pressed="false">{{ c.nome }}</button>{% endfor %}
+{% else %}
+<input type="hidden" name="categoria" value="{{ categoria }}">
+<button name="categoria" value="" {% if not categoria %}aria-pressed="true"{% else %}aria-pressed="false" class="secondary"{% endif %}>Todos</button>
+{% for c in categorias %}<button name="categoria" value="{{ c.id }}" {% if categoria==c.id|string %}aria-pressed="true"{% else %}aria-pressed="false" class="secondary"{% endif %}>{{ c.nome }}</button>{% endfor %}
+{% endif %}
+</div>

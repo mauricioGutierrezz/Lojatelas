@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}{% include 'caja_links.html' %}<h1>Cierre confirmado · {{ cierre.data_referencia.strftime('%d/%m/%Y') }}</h1>
+<p class="status">Sin reapertura</p>
+{% set estado = cierre %}{% include 'caja_valores.html' %}
+<section class="card"><p>Efectivo contado: <strong>{{ cierre.valor_contado|importe if cierre.valor_contado is not none else 'Sin conteo' }}</strong></p><p>Diferencia: <strong>{{ cierre.divergencia|importe if cierre.divergencia is not none else 'Sin conteo' }}</strong></p><p>Cerrado por {{ cierre.responsavel }} · {{ cierre.fechado_em.strftime('%d/%m/%Y %H:%M:%S') }}</p></section>
+{% endblock %}

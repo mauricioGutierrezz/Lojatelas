@@ -1,0 +1,20 @@
+{% extends 'base.html' %}{% from 'foto_macro.html' import thumbnail %}
+{% block content %}
+<a class="back" href="{{ url_for('corte.productos',ticket_id=ticket.id,**busca) }}">← Ticket {{ ticket.codigo }} · Elegir producto</a>
+{% include 'ticket_resumen.html' %}
+{{ thumbnail(produto.produto_id,produto.produto,produto.tem_foto) }}
+<h1>{{ produto.produto }}</h1><p class="muted">{{ produto.tipo }} · Precio actual: {{ produto.preco_unitario|importe }} / {{ produto.unidade_medida }} · Pago pendiente</p>
+<div class="summary"><div><strong>{{ produto.estoque_total|cantidad }} {{ produto.unidade_medida }}</strong><span>Stock total</span></div>{% if produto.unidade_medida!='un' %}<div><strong>{{ produto.maior_lote_disponivel|cantidad }} {{ produto.unidade_medida }}</strong><span>Mayor saldo por {{ unidad(produto.unidade_medida).origem }}</span></div><div><strong>{{ produto.rolos_abertos }} / {{ produto.rolos_fechados }}</strong><span>{{ unidad(produto.unidade_medida).estado }}</span></div>{% endif %}</div>
+<form class="card" id="corte-seleccion" method="post" action="{{ url_for('corte.revisar',ticket_id=ticket.id,produto_id=produto.produto_id) }}" data-suggestion-url="{{ url_for('corte.seleccionar',ticket_id=ticket.id,produto_id=produto.produto_id) }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="preparo" value="{{ preparo }}">
+<input type="hidden" name="q" value="{{ busca.get('q','') }}"><input type="hidden" name="categoria" value="{{ busca.get('categoria','') }}">
+{% if produto.unidade_medida=='un' %}<label for="quantidade">Cantidad (un)</label><input id="quantidade" name="quantidade" inputmode="numeric" value="{{ quantidade }}" required autofocus>
+{% else %}<label for="quantidade_vendida">Cantidad vendida ({{ produto.unidade_medida }})</label><input id="quantidade_vendida" name="quantidade_vendida" inputmode="decimal" value="{{ quantidade_vendida }}" required autofocus>
+<label for="quantidade_cortada">{{ unidad(produto.unidade_medida).retirada }} ({{ produto.unidade_medida }})</label><input id="quantidade_cortada" name="quantidade_cortada" inputmode="decimal" value="{{ quantidade_cortada }}" required>
+{% endif %}
+{% if produto.unidade_medida!='un' %}<div class="actions"><button type="button" id="corte-sugerir">Ver sugerencia de {{ unidad(produto.unidade_medida).origem }}</button></div>{% endif %}
+<p id="corte-aviso" role="status" hidden></p>
+<div id="corte-lotes">{% if produto.unidade_medida=='un' %}{% if erro %}<p class="flash erro" role="alert">{{ erro }}</p>{% endif %}<button id="corte-revisar">Revisar retirada →</button>{% else %}{% include 'corte_lotes.html' %}{% endif %}</div>
+</form>
+<script src="{{ url_for('static',filename='corte.js') }}" defer></script>
+{% endblock %}

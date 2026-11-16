@@ -1,0 +1,7 @@
+{% extends 'base.html' %}{% from 'foto_macro.html' import thumbnail %}
+{% block content %}
+<p class="step">Ingreso {{ ingresso_id }}</p><h1>Ingreso confirmado</h1>
+<p class="muted">Registrado por {{ lotes[0].registrado_por }} · {{ lotes[0].registrado_em.strftime('%d/%m/%Y') }}.</p>
+<div class="card table-wrap"><table><thead><tr><th>Origen físico</th><th>Producto</th><th>Cantidad declarada</th></tr></thead><tbody>{% for l in lotes %}<tr><td>{{ unidad(l.unidade_medida).titulo ~ ' ' ~ l.codigo_interno if l.codigo_interno else '—' }}</td><td>{{ thumbnail(l.produto_id,l.nome,l.tem_foto) }}{{ l.nome }}</td><td class="number">{{ l.quantidade|cantidad }} {{ l.unidade_medida }}</td></tr>{% endfor %}</tbody></table></div>
+<a class="button" href="{{ url_for('entrada.stock') }}">Volver a productos y stock</a>
+{% endblock %}
