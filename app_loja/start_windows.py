@@ -118,8 +118,16 @@ def main():
                 from waitress import create_server
             except ImportError:
                 parser.exit(1, 'Falta el componente de red. Ejecutá instalar.bat una vez y volvé a abrir.\n')
-            server = create_server(create_app(), host='0.0.0.0', port=args.port, threads=8, ident=None)
+            application = create_app({'REGISTRAR_ACCESOS': True})
+            try:
+                # IPv4 e IPv6: el nombre del equipo suele resolver primero a IPv6 en la red local.
+                server = create_server(application, listen=f'0.0.0.0:{args.port} [::]:{args.port}',
+                                       threads=8, ident=None)
+            except OSError:
+                server = create_server(application, listen=f'0.0.0.0:{args.port}', threads=8, ident=None)
             serve = server.run
+            if red.keep_awake():
+                print('Mientras la tienda esté abierta, este equipo no se suspende por inactividad.')
         else:
             from werkzeug.serving import make_server
             server = make_server('127.0.0.1', args.port, create_app(), threaded=True)
@@ -135,6 +143,7 @@ def main():
         for address in red.urls(args.port):
             print(f'  {address}')
         print('Si no conectan, ejecutá permitir_red.bat una vez en este equipo.')
+        print(f'Registro de conexiones: {red.access_log_path()}')
     print('La tienda está abierta. Dejá esta ventana abierta (podés minimizarla); cerrarla apaga la tienda.')
     if not args.sin_navegador:
         webbrowser.open(url)

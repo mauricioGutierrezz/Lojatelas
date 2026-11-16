@@ -27,6 +27,26 @@ iniciada com o "pode fazer" do responsável em 2026-11-16.
   `permitir_red.bat` ou resposta "S" no assistente, com o pedido de permissão
   de administrador do Windows). `quitar_red.bat` desfaz.
 
+## Correções após o primeiro teste com outro computador (2026-11-16)
+
+O primeiro teste real "funcionou por alguns segundos e parou". Achados no PC
+servidor e correções:
+
+- O nome do servidor resolve primeiro para endereços IPv6, e a loja só
+  escutava em IPv4. Agora escuta em IPv4 e IPv6. Como IPv6 não tem faixa
+  "privada" equivalente, a aplicação aceita endereços IPv6 globais apenas do
+  mesmo prefixo /64 do próprio servidor (a mesma rede local).
+- O Windows suspendia o PC após 15 minutos parado. Com a loja aberta em modo
+  servidor, o processo pede ao Windows para não suspender por inatividade; ao
+  fechar a loja, vale de novo a configuração do Windows.
+- Novo registro de conexões em `%LOCALAPPDATA%\Urdimbre\accesos.log`
+  (endereço, método, caminho e resultado; sem parâmetros, corpo ou senhas), só
+  no modo servidor, para diagnosticar falhas.
+
+Depois dessas correções e de reabrir a loja, o responsável confirmou em
+2026-11-16 que a conexão a partir do outro computador ficou estável.
+
+
 ## HTTP sem cifra na rede da loja — confirmado em 2026-11-16
 
 O responsável confirmou que o Wi-Fi da loja é **exclusivo dela, sem acesso de

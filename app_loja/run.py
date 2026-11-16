@@ -14,6 +14,7 @@ from .throttle import AttemptLimiter
 def create_app(test_config=None):
     app = Flask(__name__)
     app.config.update(SECRET_KEY=config.SECRET_KEY, MAX_CONTENT_LENGTH=64 * 1024, REDES_PERMITIDAS=(),
+                      REGISTRAR_ACCESOS=False,
                       SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
     if test_config:
         app.config.update(test_config)
@@ -40,6 +41,8 @@ def create_app(test_config=None):
     def protect_request():
         # Segunda barrera después del firewall: solo este equipo y la red privada de la tienda.
         if not red.allowed_client(request.remote_addr, app.config['REDES_PERMITIDAS']):
+            if app.config['REGISTRAR_ACCESOS']:
+                red.log_access(request.remote_addr, request.method, request.path, '403-fuera-de-red')
             return 'Acceso permitido solo desde la red de la tienda.', 403, {'Content-Type': 'text/plain; charset=utf-8'}
         # El ícono no existe: responder sin tocar la sesión ni redirigir al ingreso.
         if request.path == '/favicon.ico':
@@ -67,6 +70,9 @@ def create_app(test_config=None):
     def prevent_cached_authorization(response):
         if request.endpoint!='static':
             response.headers['Cache-Control'] = 'no-store'
+            # Solo en modo servidor: ayuda a diagnosticar conexiones de otros equipos.
+            if app.config['REGISTRAR_ACCESOS']:
+                red.log_access(request.remote_addr, request.method, request.path, response.status_code)
         return response
 
     def unidad(code):

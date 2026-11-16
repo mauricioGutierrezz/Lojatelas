@@ -42,6 +42,54 @@ class AllowedClientTests(unittest.TestCase):
         vpn = create_app({'TESTING': True, 'SECRET_KEY': 'fixture-only', 'REDES_PERMITIDAS': ('100.64.0.0/10',)})
         self.assertEqual(vpn.test_client().get('/login', environ_base={'REMOTE_ADDR': '100.70.1.2'}).status_code, 200)
 
+    def test_ipv6_neighbours_on_the_same_prefix_are_local_and_other_global_addresses_are_not(self):
+        import ipaddress
+        networks = (ipaddress.ip_network('2a01:4f8:aa:bb::/64'),)
+        with patch('app_loja.red.local_ipv6_networks', return_value=networks):
+            self.assertTrue(red.allowed_client('2a01:4f8:aa:bb:1234:5678:9abc:def0'))
+            self.assertFalse(red.allowed_client('2a01:4f8:aa:cc::1'))
+            self.assertFalse(red.allowed_client('2606:4700:4700::1111'))
+            self.assertFalse(red.allowed_client('8.8.8.8'))
+        with patch('app_loja.red.local_ipv6_networks', return_value=()):
+            self.assertFalse(red.allowed_client('2a01:4f8:aa:bb::5'))
+            self.assertTrue(red.allowed_client('fd00::5'))
+
+    def test_local_ipv6_prefixes_come_from_this_machine_and_ignore_link_local(self):
+        answers = [(None, None, None, None, ('2a01:4f8:aa:bb::7', 0, 0, 0)),
+                   (None, None, None, None, ('fe80::1%9', 0, 0, 9)),
+                   (None, None, None, None, ('2a01:4f8:aa:bb::8', 0, 0, 0))]
+        with patch('app_loja.red._ipv6_cache', (0.0, ())), \
+             patch('app_loja.red.socket.getaddrinfo', return_value=answers) as lookup:
+            self.assertEqual([str(n) for n in red.local_ipv6_networks()], ['2a01:4f8:aa:bb::/64'])
+            red.local_ipv6_networks()
+            lookup.assert_called_once()
+        with patch('app_loja.red._ipv6_cache', (0.0, ())), \
+             patch('app_loja.red.socket.getaddrinfo', side_effect=OSError('sin IPv6')):
+            self.assertEqual(red.local_ipv6_networks(), ())
+
+    def test_access_log_is_opt_in_and_never_records_form_data(self):
+        from app_loja.run import create_app
+        with tempfile.TemporaryDirectory(prefix='loja-red-test-') as directory, \
+             patch.dict(os.environ, {'LOJA_SECRET_DIR': directory}), patch('app_loja.db.fetchone', return_value=None):
+            log = Path(directory)/'accesos.log'
+            quiet = create_app({'TESTING': True, 'SECRET_KEY': 'fixture-only'}).test_client()
+            quiet.get('/login')
+            self.assertFalse(log.exists())
+            client = create_app({'TESTING': True, 'SECRET_KEY': 'fixture-only', 'REGISTRAR_ACCESOS': True}).test_client()
+            client.get('/login?secreto=valor-en-url', environ_base={'REMOTE_ADDR': '192.168.1.40'})
+            with client.session_transaction() as session:
+                csrf = session['csrf']
+            with patch('app_loja.routes.auth_routes.verificar_login', return_value=None):
+                client.post('/login', data={'csrf': csrf, 'login': 'cajero', 'senha': 'clave-ficticia'})
+            client.get('/static/stock.css')
+            client.get('/login', environ_base={'REMOTE_ADDR': '8.8.8.8'})
+            text = log.read_text(encoding='utf-8')
+            self.assertIn('192.168.1.40 GET /login 200', text)
+            self.assertIn('POST /login 200', text)
+            self.assertIn('8.8.8.8 GET /login 403-fuera-de-red', text)
+            for hidden in ('clave-ficticia', 'valor-en-url', 'secreto', 'stock.css', csrf):
+                self.assertNotIn(hidden, text)
+
     def test_saved_mode_defaults_to_local_and_survives_bad_content(self):
         with tempfile.TemporaryDirectory(prefix='loja-red-test-') as directory, \
              patch.dict(os.environ, {'LOJA_SECRET_DIR': directory}):
@@ -87,10 +135,12 @@ class StartNetworkTests(unittest.TestCase):
     def test_server_mode_listens_on_the_network_and_shows_the_address(self):
         for argv, saved in ((['--red'], False), ([], True)):
             with self.subTest(argv=argv, saved=saved):
-                local, network, browser, printed = self.start(argv, saved)
+                with patch('app_loja.start_windows.red.keep_awake', return_value=True) as awake:
+                    local, network, browser, printed = self.start(argv, saved)
                 local.assert_not_called()
-                self.assertEqual(network.call_args.kwargs['host'], '0.0.0.0')
-                self.assertEqual(network.call_args.kwargs['port'], 5000)
+                # IPv4 e IPv6: el nombre del equipo puede resolver a cualquiera de los dos.
+                self.assertEqual(network.call_args.kwargs['listen'], '0.0.0.0:5000 [::]:5000')
+                awake.assert_called_once_with()
                 network.return_value.run.assert_called_once()
                 self.assertIn('http://tienda-fixture:5000', printed)
                 self.assertIn('permitir_red.bat', printed)
@@ -99,9 +149,28 @@ class StartNetworkTests(unittest.TestCase):
         local, network, browser, _ = self.start(['--local'], saved_mode=True)
         local.assert_called_once()
         network.assert_not_called()
-        local, network, browser, _ = self.start(['--sin-navegador'], saved_mode=True)
+        with patch('app_loja.start_windows.red.keep_awake', return_value=False):
+            local, network, browser, _ = self.start(['--sin-navegador'], saved_mode=True)
         network.assert_called_once()
         browser.assert_not_called()
+
+    def test_ipv4_only_fallback_when_ipv6_is_unavailable(self):
+        from app_loja.start_windows import main
+        store = MagicMock()
+        store.available.return_value = False
+        with (patch.dict(os.environ), patch.dict('app_loja.config.DB_CONFIG'), patch('sys.argv', ['start_windows', '--red']),
+              patch('app_loja.start_windows.windows_secret', store),
+              patch('app_loja.start_windows.red.keep_awake', return_value=False),
+              patch('app_loja.start_windows.red.urls', return_value=[]),
+              patch('app_loja.start_windows.urlopen', side_effect=OSError('not listening')),
+              patch('app_loja.start_windows.read_secret', return_value='fixture-secret'),
+              patch('app_loja.db.fetchone', return_value={'database': 'urdimbre'}),
+              patch('app_loja.run.create_app', return_value=object()) as app,
+              patch('waitress.create_server', side_effect=[OSError('sin IPv6'), MagicMock()]) as network,
+              patch('app_loja.start_windows.webbrowser.open'), patch('builtins.print')):
+            main()
+        self.assertEqual([call.kwargs['listen'] for call in network.call_args_list], ['0.0.0.0:5000 [::]:5000', '0.0.0.0:5000'])
+        app.assert_called_once_with({'REGISTRAR_ACCESOS': True})
 
     def test_production_server_really_answers_the_login_page(self):
         from waitress import create_server

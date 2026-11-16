@@ -77,6 +77,14 @@ Si un equipo no conecta:
   ventana de la tienda. Si funciona solo así, reservar esa dirección para el
   servidor en el router.
 
+- Mientras la tienda está abierta en modo servidor, este equipo no se suspende
+  por inactividad. Si se cierra la tapa o se apaga, los otros equipos pierden
+  la conexión.
+- El archivo `%LOCALAPPDATA%\Urdimbre\accesos.log` registra cada conexión
+  (dirección, página y resultado, sin contraseñas). Si el otro equipo no
+  aparece allí, el pedido no llegó: revisar red y firewall. Si aparece con
+  `403-fuera-de-red`, ese equipo no está en la red local de la tienda.
+
 Seguridad: la tienda rechaza cualquier conexión que no venga de este equipo o
 de una red privada. Dentro de la red local la conexión **no va cifrada**: usar
 el modo servidor solo en una red cableada o un Wi-Fi exclusivo de la tienda,

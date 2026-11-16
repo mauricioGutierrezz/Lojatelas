@@ -70,7 +70,7 @@ em `ejecutar_pruebas.bat`.
 
 ## Entrega B — Vários computadores na loja
 
-> **Implementada em 2026-11-16**, ainda sem teste com um segundo computador real. HTTP sem cifra aceito em 2026-11-16 por a rede ser exclusiva da loja. Registro e pontos em aberto (PC servidor, endereço estável): [rede local](../decisions/2026-11-16-rede-local.md).
+> **Implementada em 2026-11-16** e confirmada pelo responsável com um segundo computador real, após a correção de IPv6 e de suspensão. HTTP sem cifra aceito em 2026-11-16 por a rede ser exclusiva da loja. Registro e pontos em aberto (PC servidor, endereço estável): [rede local](../decisions/2026-11-16-rede-local.md).
 
 **Objetivo:** um PC servidor; os demais usam só o navegador.
 
